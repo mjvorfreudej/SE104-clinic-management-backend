@@ -1,0 +1,14 @@
+# Không đưa các thư mục build/IDE vào Docker build context
+**/bin/
+**/obj/
+**/out/
+**/publish/
+.vs/
+.idea/
+.git/
+.gitignore
+**/appsettings.Development.json
+**/appsettings.Production.json
+*.user
+*.md
+Docs/

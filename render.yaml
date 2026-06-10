@@ -1,0 +1,25 @@
+# Render Blueprint – deploy backend ASP.NET Core bằng Docker.
+# Sau khi push lên GitHub, vào Render > New > Blueprint, chọn repo này.
+services:
+  - type: web
+    name: clinic-management-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      # Connection string Supabase – nhập thủ công trong Render Dashboard (đánh dấu secret).
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      # Khóa ký JWT – Render tự sinh ngẫu nhiên an toàn.
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__Issuer
+        value: ClinicManagement.API
+      - key: Jwt__Audience
+        value: ClinicManagement.UI
+      - key: Jwt__ExpireMinutes
+        value: "480"
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
