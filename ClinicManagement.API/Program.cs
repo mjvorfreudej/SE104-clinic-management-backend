@@ -133,7 +133,24 @@ using (var scope = app.Services.CreateScope())
         try
         {
             var db = scope.ServiceProvider.GetRequiredService<ClinicDbContext>();
-            await db.Database.EnsureCreatedAsync();
+
+            // Supabase có bảng nội bộ trong public schema làm EnsureCreated bỏ qua tạo bảng của ta.
+            // Kiểm tra bảng VaiTro bằng SQL thuần; nếu chưa có thì tạo toàn bộ schema.
+            var dbConn = db.Database.GetDbConnection();
+            if (dbConn.State != System.Data.ConnectionState.Open)
+                await dbConn.OpenAsync();
+            await using (var cmd = dbConn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='VaiTro')";
+                var exists = (bool)(await cmd.ExecuteScalarAsync() ?? false);
+                if (!exists)
+                {
+                    // Tạo schema bằng SQL script EF sinh ra (chạy thẳng, không qua EnsureCreated)
+                    var script = db.Database.GenerateCreateScript();
+                    await db.Database.ExecuteSqlRawAsync(script);
+                }
+            }
+
             await DataSeeder.SeedAsync(db);
             logger.LogInformation("Khởi tạo CSDL & seed dữ liệu thành công.");
         }
