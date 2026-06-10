@@ -26,6 +26,8 @@ public class TokenService : ITokenService
             new(ClaimTypes.Name, nguoiDung.TenDangNhap),
             new("hoTen", nguoiDung.HoTen),
             new(ClaimTypes.Role, roleCode),
+            // Tên vai trò tiếng Việt (để /api/auth/me trả tên hiển thị, không phải mã code)
+            new("vaiTroTen", nguoiDung.VaiTro?.TenVaiTro ?? string.Empty),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 

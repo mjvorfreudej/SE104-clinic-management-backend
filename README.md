@@ -74,7 +74,7 @@ Khi tạo service trên Render, cấu hình các biến môi trường ở **m�
 | YC3 | `GET /api/tracuu/benhnhan`, `.../lichsu` | đã đăng nhập |
 | YC4 | `POST /api/hoadon`, `GET /api/hoadon/preview` | Tiếp Tân, Admin |
 | YC5 | `GET /api/baocao/{doanhthu\|sudungthuoc}` | Kế Toán, Admin |
-| YC6 | `GET/PUT /api/quydinh`, CRUD `/api/quydinh/{loaibenh\|thuoc}` | Admin |
+| YC6 | `GET/PUT /api/quydinh`, CRUD `/api/quydinh/{loaibenh\|thuoc\|donvi\|cachdung}` | Admin |
 
 ## 7. Cấu hình (biến môi trường)
 

@@ -58,4 +58,38 @@ public class QuyDinhController : ControllerBase
         await _service.DeleteThuocAsync(id);
         return Ok(new MessageResponse("Đã xóa thuốc."));
     }
+
+    // ----- QĐ2: Đơn vị tính -----
+
+    [HttpPost("donvi")]
+    public async Task<ActionResult<DonViDto>> AddDonVi([FromBody] UpsertDonViRequest request)
+        => Ok(await _service.AddDonViAsync(request));
+
+    [HttpPut("donvi/{id:int}")]
+    public async Task<ActionResult<DonViDto>> UpdateDonVi(int id, [FromBody] UpsertDonViRequest request)
+        => Ok(await _service.UpdateDonViAsync(id, request));
+
+    [HttpDelete("donvi/{id:int}")]
+    public async Task<IActionResult> DeleteDonVi(int id)
+    {
+        await _service.DeleteDonViAsync(id);
+        return Ok(new MessageResponse("Đã xóa đơn vị tính."));
+    }
+
+    // ----- QĐ2: Cách dùng -----
+
+    [HttpPost("cachdung")]
+    public async Task<ActionResult<CachDungDto>> AddCachDung([FromBody] UpsertCachDungRequest request)
+        => Ok(await _service.AddCachDungAsync(request));
+
+    [HttpPut("cachdung/{id:int}")]
+    public async Task<ActionResult<CachDungDto>> UpdateCachDung(int id, [FromBody] UpsertCachDungRequest request)
+        => Ok(await _service.UpdateCachDungAsync(id, request));
+
+    [HttpDelete("cachdung/{id:int}")]
+    public async Task<IActionResult> DeleteCachDung(int id)
+    {
+        await _service.DeleteCachDungAsync(id);
+        return Ok(new MessageResponse("Đã xóa cách dùng."));
+    }
 }

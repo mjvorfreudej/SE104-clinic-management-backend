@@ -35,7 +35,7 @@ public class AuthController : ControllerBase
             TenDangNhap = User.FindFirstValue(ClaimTypes.Name) ?? string.Empty,
             HoTen = User.FindFirstValue("hoTen") ?? string.Empty,
             VaiTroCode = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty,
-            VaiTro = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty
+            VaiTro = User.FindFirstValue("vaiTroTen") ?? string.Empty
         });
     }
 }

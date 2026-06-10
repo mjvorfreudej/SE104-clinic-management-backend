@@ -8,8 +8,14 @@ public class LoginRequest
     [Required]
     public string Email { get; set; } = string.Empty;
 
-    [Required]
-    public string MatKhau { get; set; } = string.Empty;
+    /// <summary>Mật khẩu. Chấp nhận field "MatKhau" (chuẩn) hoặc "Password" (Frontend WPF đang bind).</summary>
+    public string? MatKhau { get; set; }
+
+    /// <summary>Alias của MatKhau – cho phép Frontend gửi "Password" mà vẫn đăng nhập được.</summary>
+    public string? Password { get; set; }
+
+    /// <summary>Mật khẩu hiệu lực: ưu tiên MatKhau, nếu trống thì lấy Password.</summary>
+    public string GetMatKhau() => !string.IsNullOrEmpty(MatKhau) ? MatKhau : (Password ?? string.Empty);
 }
 
 public class LoginResponse

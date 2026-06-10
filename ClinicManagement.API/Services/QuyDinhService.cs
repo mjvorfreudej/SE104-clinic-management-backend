@@ -169,4 +169,90 @@ public class QuyDinhService : IQuyDinhService
         MaDonVi = dv.MaDonVi,
         TenDonVi = dv.TenDonVi
     };
+
+    // ---------- Đơn vị tính ----------
+
+    public async Task<DonViDto> AddDonViAsync(UpsertDonViRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.TenDonVi))
+            throw new DomainException("Tên đơn vị tính không được để trống.");
+
+        var ma = string.IsNullOrWhiteSpace(request.MaDonVi)
+            ? MaGenerator.Next("DV", await _db.DonVis.Select(x => x.MaDonVi).ToListAsync())
+            : request.MaDonVi.Trim();
+
+        if (await _db.DonVis.AnyAsync(x => x.MaDonVi == ma))
+            throw new DomainException($"Mã đơn vị '{ma}' đã tồn tại.");
+
+        var dv = new DonVi { MaDonVi = ma, TenDonVi = request.TenDonVi.Trim() };
+        _db.DonVis.Add(dv);
+        await _db.SaveChangesAsync();
+        return new DonViDto { Id = dv.Id, MaDonVi = dv.MaDonVi, TenDonVi = dv.TenDonVi };
+    }
+
+    public async Task<DonViDto> UpdateDonViAsync(int id, UpsertDonViRequest request)
+    {
+        var dv = await _db.DonVis.FindAsync(id)
+            ?? throw new DomainException("Không tìm thấy đơn vị tính.");
+        if (string.IsNullOrWhiteSpace(request.TenDonVi))
+            throw new DomainException("Tên đơn vị tính không được để trống.");
+
+        dv.TenDonVi = request.TenDonVi.Trim();
+        await _db.SaveChangesAsync();
+        return new DonViDto { Id = dv.Id, MaDonVi = dv.MaDonVi, TenDonVi = dv.TenDonVi };
+    }
+
+    public async Task DeleteDonViAsync(int id)
+    {
+        var dv = await _db.DonVis.FindAsync(id)
+            ?? throw new DomainException("Không tìm thấy đơn vị tính.");
+        if (await _db.Thuocs.AnyAsync(t => t.DonViId == id))
+            throw new DomainException("Không thể xóa: đơn vị tính đang được dùng bởi thuốc.");
+
+        _db.DonVis.Remove(dv);
+        await _db.SaveChangesAsync();
+    }
+
+    // ---------- Cách dùng ----------
+
+    public async Task<CachDungDto> AddCachDungAsync(UpsertCachDungRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.MoTaCachDung))
+            throw new DomainException("Mô tả cách dùng không được để trống.");
+
+        var ma = string.IsNullOrWhiteSpace(request.MaCachDung)
+            ? MaGenerator.Next("CD", await _db.CachDungs.Select(x => x.MaCachDung).ToListAsync())
+            : request.MaCachDung.Trim();
+
+        if (await _db.CachDungs.AnyAsync(x => x.MaCachDung == ma))
+            throw new DomainException($"Mã cách dùng '{ma}' đã tồn tại.");
+
+        var cd = new CachDung { MaCachDung = ma, MoTaCachDung = request.MoTaCachDung.Trim() };
+        _db.CachDungs.Add(cd);
+        await _db.SaveChangesAsync();
+        return new CachDungDto { Id = cd.Id, MaCachDung = cd.MaCachDung, MoTaCachDung = cd.MoTaCachDung };
+    }
+
+    public async Task<CachDungDto> UpdateCachDungAsync(int id, UpsertCachDungRequest request)
+    {
+        var cd = await _db.CachDungs.FindAsync(id)
+            ?? throw new DomainException("Không tìm thấy cách dùng.");
+        if (string.IsNullOrWhiteSpace(request.MoTaCachDung))
+            throw new DomainException("Mô tả cách dùng không được để trống.");
+
+        cd.MoTaCachDung = request.MoTaCachDung.Trim();
+        await _db.SaveChangesAsync();
+        return new CachDungDto { Id = cd.Id, MaCachDung = cd.MaCachDung, MoTaCachDung = cd.MoTaCachDung };
+    }
+
+    public async Task DeleteCachDungAsync(int id)
+    {
+        var cd = await _db.CachDungs.FindAsync(id)
+            ?? throw new DomainException("Không tìm thấy cách dùng.");
+        if (await _db.ChiTietPhieuKhams.AnyAsync(c => c.CachDungId == id))
+            throw new DomainException("Không thể xóa: cách dùng đang được dùng trong phiếu khám.");
+
+        _db.CachDungs.Remove(cd);
+        await _db.SaveChangesAsync();
+    }
 }

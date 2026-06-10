@@ -25,8 +25,11 @@ public class AuthService : IAuthService
 
         if (user is null) return null;
 
+        var matKhau = request.GetMatKhau();
+        if (string.IsNullOrEmpty(matKhau)) return null;
+
         // Kiểm tra mật khẩu bằng BCrypt (chống lộ mật khẩu plaintext)
-        if (!BCrypt.Net.BCrypt.Verify(request.MatKhau, user.MatKhauHash))
+        if (!BCrypt.Net.BCrypt.Verify(matKhau, user.MatKhauHash))
             return null;
 
         var (token, expiresAt) = _tokenService.GenerateToken(user);

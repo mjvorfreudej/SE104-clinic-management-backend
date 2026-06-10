@@ -51,3 +51,15 @@ public class UpsertThuocRequest
     [Required] public string MaDonVi { get; set; } = string.Empty;
     public string? MaThuoc { get; set; }
 }
+
+public class UpsertDonViRequest
+{
+    [Required] public string TenDonVi { get; set; } = string.Empty;
+    public string? MaDonVi { get; set; }
+}
+
+public class UpsertCachDungRequest
+{
+    [Required] public string MoTaCachDung { get; set; } = string.Empty;
+    public string? MaCachDung { get; set; }
+}
