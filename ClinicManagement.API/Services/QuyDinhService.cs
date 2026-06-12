@@ -49,6 +49,18 @@ public class QuyDinhService : IQuyDinhService
         var ts = await GetOrCreateThamSoAsync();
         ts.SoBenhNhanToiDaNgay = request.SoBenhNhanToiDaNgay;
         ts.TienKham = request.TienKham;
+
+        // 🌟 Đồng bộ QĐ1 cho danh sách khám của HÔM NAY (và các ngày tương lai nếu có).
+        // Trước đây giới hạn được "đóng băng" vào danh sách lúc tạo, nên đổi quy định xong
+        // màn Danh sách khám vẫn hiện số cũ (vd 3/40). Cập nhật ở đây để mọi màn hình phản ánh ngay.
+        // Các ngày trong quá khứ giữ nguyên giá trị lịch sử.
+        var today = VietnamTime.Today;
+        var dsCanDongBo = await _db.DanhSachKhams
+            .Where(d => d.NgayKham >= today)
+            .ToListAsync();
+        foreach (var ds in dsCanDongBo)
+            ds.SoBenhNhanToiDa = request.SoBenhNhanToiDaNgay;
+
         await _db.SaveChangesAsync();
 
         return await GetThamSoAsync();
