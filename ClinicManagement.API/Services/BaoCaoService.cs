@@ -84,7 +84,7 @@ public class BaoCaoService : IBaoCaoService
             {
                 c.ThuocId,
                 c.TenThuoc,
-                DonViTinh = c.Thuoc!.DonVi!.TenDonVi,
+                DonViTinh = c.TenDonVi, // snapshot – đọc trực tiếp, không JOIN sang Thuoc/DonVi (tối ưu thời gian, mục 3)
                 c.SoLuong,
                 c.PhieuKhamId
             })

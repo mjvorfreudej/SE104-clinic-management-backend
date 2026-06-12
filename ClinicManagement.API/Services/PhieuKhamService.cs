@@ -52,7 +52,7 @@ public class PhieuKhamService : IPhieuKhamService
             if (item.SoLuong <= 0)
                 throw new DomainException("Số lượng thuốc phải là số nguyên dương (> 0).");
 
-            var thuoc = await _db.Thuocs.FirstOrDefaultAsync(t => t.MaThuoc == item.MaThuoc)
+            var thuoc = await _db.Thuocs.Include(t => t.DonVi).FirstOrDefaultAsync(t => t.MaThuoc == item.MaThuoc)
                 ?? throw new DomainException($"Thuốc '{item.MaThuoc}' không có trong danh mục.");
             var cachDung = await _db.CachDungs.FirstOrDefaultAsync(c => c.MaCachDung == item.MaCachDung)
                 ?? throw new DomainException($"Cách dùng '{item.MaCachDung}' không có trong danh mục.");
@@ -60,10 +60,12 @@ public class PhieuKhamService : IPhieuKhamService
             phieu.ChiTietPhieuKhams.Add(new ChiTietPhieuKham
             {
                 ThuocId = thuoc.Id,
-                TenThuoc = thuoc.TenThuoc,   // snapshot
-                DonGia = thuoc.DonGia,       // snapshot
+                TenThuoc = thuoc.TenThuoc,                    // snapshot
+                TenDonVi = thuoc.DonVi?.TenDonVi ?? string.Empty, // snapshot (giảm JOIN sang DonVi)
+                DonGia = thuoc.DonGia,                        // snapshot
                 SoLuong = item.SoLuong,
-                CachDungId = cachDung.Id
+                CachDungId = cachDung.Id,
+                TenCachDung = cachDung.MoTaCachDung           // snapshot (giảm JOIN sang CachDung)
             });
         }
 
@@ -104,6 +106,7 @@ public class PhieuKhamService : IPhieuKhamService
             {
                 MaThuoc = c.Thuoc?.MaThuoc ?? string.Empty,
                 TenThuoc = c.TenThuoc,
+                TenDonVi = c.TenDonVi,                       // snapshot (đơn vị tính, không cần JOIN)
                 SoLuong = c.SoLuong,
                 MaCachDung = c.CachDung?.MaCachDung ?? string.Empty,
                 MoTaCachDung = c.CachDung?.MoTaCachDung ?? string.Empty,

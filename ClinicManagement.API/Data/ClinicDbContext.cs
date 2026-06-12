@@ -150,6 +150,9 @@ public class ClinicDbContext : DbContext
             e.ToTable("ChiTietPhieuKham");
             e.Ignore(x => x.ThanhTien);
             e.Property(x => x.TenThuoc).HasMaxLength(150).IsRequired();
+            // Snapshot tối ưu thời gian (giảm JOIN) – khớp độ dài cột nguồn DonVi.TenDonVi / CachDung.MoTaCachDung.
+            e.Property(x => x.TenDonVi).HasMaxLength(50).IsRequired();
+            e.Property(x => x.TenCachDung).HasMaxLength(200).IsRequired();
             e.Property(x => x.DonGia).HasColumnType("numeric(18,2)");
             e.HasOne(x => x.PhieuKham)
              .WithMany(p => p.ChiTietPhieuKhams)
