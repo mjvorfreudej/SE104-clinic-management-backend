@@ -45,7 +45,9 @@ public class DanhSachKhamService : IDanhSachKhamService
         {
             Id = dsk?.Id ?? 0,
             NgayKham = ngay.ToDateTime(TimeOnly.MinValue),
-            SoBenhNhanToiDaNgay = dsk?.SoBenhNhanToiDa ?? maxMacDinh,
+            // Luôn lấy giới hạn theo quy định HIỆN HÀNH (QĐ1) để khi Admin đổi quy định là mọi màn hình
+            // cập nhật ngay, không bị kẹt ở giá trị đã "đóng băng" lúc tạo danh sách.
+            SoBenhNhanToiDaNgay = maxMacDinh,
             TongDoanhThuNgay = doanhThu
         };
 
@@ -84,15 +86,18 @@ public class DanhSachKhamService : IDanhSachKhamService
             ? VietnamTime.Today
             : DateOnly.FromDateTime(request.NgayKham);
 
+        // --- Giới hạn QĐ1 theo quy định HIỆN HÀNH (không dùng giá trị đã đóng băng) ---
+        var thamSo = await _db.ThamSos.FirstOrDefaultAsync();
+        var gioiHanNgay = thamSo?.SoBenhNhanToiDaNgay ?? 40;
+
         // --- Lấy hoặc tạo danh sách khám của ngày ---
         var dsk = await _db.DanhSachKhams.FirstOrDefaultAsync(d => d.NgayKham == ngay);
         if (dsk is null)
         {
-            var thamSo = await _db.ThamSos.FirstOrDefaultAsync();
             dsk = new DanhSachKham
             {
                 NgayKham = ngay,
-                SoBenhNhanToiDa = thamSo?.SoBenhNhanToiDaNgay ?? 40
+                SoBenhNhanToiDa = gioiHanNgay
             };
             _db.DanhSachKhams.Add(dsk);
             await _db.SaveChangesAsync(); // cần Id của header
@@ -100,8 +105,8 @@ public class DanhSachKhamService : IDanhSachKhamService
 
         // --- Kiểm tra QĐ1: giới hạn số bệnh nhân/ngày ---
         var soHienTai = await _db.ChiTietDanhSachKhams.CountAsync(c => c.DanhSachKhamId == dsk.Id);
-        if (soHienTai >= dsk.SoBenhNhanToiDa)
-            throw new DomainException($"Đã đủ {dsk.SoBenhNhanToiDa} bệnh nhân trong ngày, không thể tiếp nhận thêm.");
+        if (soHienTai >= gioiHanNgay)
+            throw new DomainException($"Đã đủ {gioiHanNgay} bệnh nhân trong ngày, không thể tiếp nhận thêm.");
 
         // --- Tạo bệnh nhân mới (taoBenhNhan) ---
         var existingCodes = await _db.BenhNhans.Select(b => b.MaBenhNhan).ToListAsync();
