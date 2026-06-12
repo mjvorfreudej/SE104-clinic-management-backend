@@ -169,25 +169,6 @@ using (var scope = app.Services.CreateScope())
                 }
             }
 
-            // Tiến hóa schema nhẹ (idempotent) cho CSDL đã tồn tại: thêm cột SĐT bệnh nhân nếu chưa có.
-            // (Bản bootstrap GenerateCreateScript chỉ chạy khi DB trống, nên CSDL cũ cần ALTER bổ sung.)
-            await db.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE \"BenhNhan\" ADD COLUMN IF NOT EXISTS \"SoDienThoai\" character varying(20); " +
-                "CREATE INDEX IF NOT EXISTS \"IX_BenhNhan_SoDienThoai\" ON \"BenhNhan\" (\"SoDienThoai\");");
-
-            // Tối ưu hóa mô hình dữ liệu về mặt thời gian (Thiết kế dữ liệu mục 3): snapshot trực tiếp
-            // đơn vị tính & cách dùng vào ChiTietPhieuKham để giảm JOIN khi truy vấn/báo cáo.
-            // Thêm cột (NOT NULL DEFAULT '' để an toàn với dữ liệu cũ) rồi backfill từ danh mục hiện hành.
-            await db.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE \"ChiTietPhieuKham\" ADD COLUMN IF NOT EXISTS \"TenDonVi\" character varying(50) NOT NULL DEFAULT ''; " +
-                "ALTER TABLE \"ChiTietPhieuKham\" ADD COLUMN IF NOT EXISTS \"TenCachDung\" character varying(200) NOT NULL DEFAULT ''; " +
-                "UPDATE \"ChiTietPhieuKham\" c SET \"TenDonVi\" = dv.\"TenDonVi\" " +
-                "FROM \"Thuoc\" t JOIN \"DonVi\" dv ON dv.\"Id\" = t.\"DonViId\" " +
-                "WHERE c.\"ThuocId\" = t.\"Id\" AND (c.\"TenDonVi\" IS NULL OR c.\"TenDonVi\" = ''); " +
-                "UPDATE \"ChiTietPhieuKham\" c SET \"TenCachDung\" = cd.\"MoTaCachDung\" " +
-                "FROM \"CachDung\" cd " +
-                "WHERE c.\"CachDungId\" = cd.\"Id\" AND (c.\"TenCachDung\" IS NULL OR c.\"TenCachDung\" = '');");
-
             await DataSeeder.SeedAsync(db);
             logger.LogInformation("Khởi tạo CSDL & seed dữ liệu thành công.");
         }
