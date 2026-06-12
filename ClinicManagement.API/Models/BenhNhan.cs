@@ -15,6 +15,9 @@ public class BenhNhan
     public int NamSinh { get; set; }
     public string? DiaChi { get; set; }
 
+    /// <summary>Số điện thoại bệnh nhân – dùng để tra cứu hồ sơ cũ (BM Tiếp nhận, BM3 Tra cứu).</summary>
+    public string? SoDienThoai { get; set; }
+
     public ICollection<ChiTietDanhSachKham> ChiTietDanhSachKhams { get; set; } = new List<ChiTietDanhSachKham>();
     public ICollection<PhieuKham> PhieuKhams { get; set; } = new List<PhieuKham>();
 }

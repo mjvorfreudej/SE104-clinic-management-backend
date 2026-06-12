@@ -8,9 +8,21 @@ public class TraCuuBenhNhanResultDto
     public string HoTen { get; set; } = string.Empty;
     public string GioiTinh { get; set; } = string.Empty;
     public int NamSinh { get; set; }
+    public string? SoDienThoai { get; set; }
     public DateTime? NgayKham { get; set; }
     public string? TenLoaiBenh { get; set; }
     public string? TrieuChung { get; set; }
+}
+
+/// <summary>Thông tin hồ sơ bệnh nhân (dùng để tự điền khi tiếp nhận – tra theo SĐT).</summary>
+public class BenhNhanInfoDto
+{
+    public string MaBenhNhan { get; set; } = string.Empty;
+    public string HoTen { get; set; } = string.Empty;
+    public string GioiTinh { get; set; } = string.Empty;
+    public int NamSinh { get; set; }
+    public string? DiaChi { get; set; }
+    public string? SoDienThoai { get; set; }
 }
 
 /// <summary>Lịch sử khám của 1 bệnh nhân.</summary>

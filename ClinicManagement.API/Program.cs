@@ -62,12 +62,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// ---- CORS (cho phép Frontend / công cụ test gọi qua Internet) ----
+// ---- CORS ----
+// Client là ứng dụng WPF Desktop (HttpClient không gửi Origin) nên không cần CORS để chạy.
+// Chỉ mở AnyOrigin khi DEV hoặc khi cấu hình rõ Cors:AllowAnyOrigin=true; ngược lại giới hạn
+// theo danh sách Cors:AllowedOrigins để tránh để API mở hoàn toàn ngoài Internet.
 const string CorsPolicy = "AllowClient";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var corsAllowAny = builder.Configuration.GetValue<bool>("Cors:AllowAnyOrigin")
+                   || builder.Environment.IsDevelopment();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsPolicy, policy =>
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+    {
+        if (corsAllowAny)
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        else if (allowedOrigins.Length > 0)
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        // Không origin nào được cấu hình ở Production => không cho phép cross-origin (Desktop vẫn chạy bình thường).
+    });
 });
 
 // ---- DI các service nghiệp vụ ----
@@ -106,8 +118,14 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseSwagger();
-app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Clinic Management API v1"));
+// Swagger: bật ở DEV, hoặc khi đặt Swagger:Enabled=true (vd để test trên cloud). Mặc định TẮT ở Production.
+var enableSwagger = app.Environment.IsDevelopment()
+                    || app.Configuration.GetValue<bool>("Swagger:Enabled");
+if (enableSwagger)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Clinic Management API v1"));
+}
 
 app.UseCors(CorsPolicy);
 
@@ -116,8 +134,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Endpoint kiểm tra sống & điều hướng trang chủ về Swagger
-app.MapGet("/", () => Results.Redirect("/swagger"));
+// Endpoint kiểm tra sống & điều hướng trang chủ (về Swagger nếu bật, ngược lại về /health).
+app.MapGet("/", () => Results.Redirect(enableSwagger ? "/swagger" : "/health"));
 app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTime.UtcNow }));
 
 // ===================== Khởi tạo CSDL + seed dữ liệu =====================
@@ -150,6 +168,12 @@ using (var scope = app.Services.CreateScope())
                     await db.Database.ExecuteSqlRawAsync(script);
                 }
             }
+
+            // Tiến hóa schema nhẹ (idempotent) cho CSDL đã tồn tại: thêm cột SĐT bệnh nhân nếu chưa có.
+            // (Bản bootstrap GenerateCreateScript chỉ chạy khi DB trống, nên CSDL cũ cần ALTER bổ sung.)
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE \"BenhNhan\" ADD COLUMN IF NOT EXISTS \"SoDienThoai\" character varying(20); " +
+                "CREATE INDEX IF NOT EXISTS \"IX_BenhNhan_SoDienThoai\" ON \"BenhNhan\" (\"SoDienThoai\");");
 
             await DataSeeder.SeedAsync(db);
             logger.LogInformation("Khởi tạo CSDL & seed dữ liệu thành công.");

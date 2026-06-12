@@ -57,6 +57,9 @@ public class ClinicDbContext : DbContext
             e.Property(x => x.HoTen).HasMaxLength(150).IsRequired();
             e.Property(x => x.GioiTinh).HasMaxLength(10);
             e.Property(x => x.DiaChi).HasMaxLength(300);
+            e.Property(x => x.SoDienThoai).HasMaxLength(20);
+            // Index (không unique – SĐT có thể trống/trùng) để tăng tốc tra cứu hồ sơ cũ.
+            e.HasIndex(x => x.SoDienThoai);
         });
 
         // ===== DanhSachKham =====

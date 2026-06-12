@@ -12,7 +12,8 @@ public class TraCuuService : ITraCuuService
     public TraCuuService(ClinicDbContext db) => _db = db;
 
     public async Task<List<TraCuuBenhNhanResultDto>> TraCuuAsync(
-        string? hoTen, int? namSinh, string? gioiTinh, DateTime? ngayKham)
+        string? hoTen, int? namSinh, string? gioiTinh, DateTime? ngayKham,
+        string? soDienThoai, int? loaiBenhId)
     {
         // Truy vấn dựa trên phiếu khám (mỗi phiếu = 1 lần khám với loại bệnh/triệu chứng)
         var q = _db.PhieuKhams
@@ -30,6 +31,13 @@ public class TraCuuService : ITraCuuService
             q = q.Where(p => p.BenhNhan!.NamSinh == namSinh.Value);
         if (!string.IsNullOrWhiteSpace(gioiTinh))
             q = q.Where(p => p.BenhNhan!.GioiTinh.ToLower() == gioiTinh.Trim().ToLower());
+        if (!string.IsNullOrWhiteSpace(soDienThoai))
+        {
+            var sdt = soDienThoai.Trim();
+            q = q.Where(p => p.BenhNhan!.SoDienThoai != null && p.BenhNhan.SoDienThoai!.Contains(sdt));
+        }
+        if (loaiBenhId.HasValue)
+            q = q.Where(p => p.LoaiBenhId == loaiBenhId.Value);
         if (ngayKham.HasValue)
         {
             var ngay = DateOnly.FromDateTime(ngayKham.Value);
@@ -44,6 +52,7 @@ public class TraCuuService : ITraCuuService
                 p.BenhNhan.HoTen,
                 p.BenhNhan.GioiTinh,
                 p.BenhNhan.NamSinh,
+                p.BenhNhan.SoDienThoai,
                 p.NgayKham,
                 TenLoaiBenh = p.LoaiBenh != null ? p.LoaiBenh.TenLoaiBenh : null,
                 p.TrieuChung
@@ -61,12 +70,36 @@ public class TraCuuService : ITraCuuService
                 HoTen = d.HoTen,
                 GioiTinh = d.GioiTinh,
                 NamSinh = d.NamSinh,
+                SoDienThoai = d.SoDienThoai,
                 NgayKham = d.NgayKham.ToDateTime(TimeOnly.MinValue),
                 TenLoaiBenh = d.TenLoaiBenh,
                 TrieuChung = d.TrieuChung
             });
         }
         return result;
+    }
+
+    public async Task<BenhNhanInfoDto?> TimTheoSoDienThoaiAsync(string soDienThoai)
+    {
+        if (string.IsNullOrWhiteSpace(soDienThoai))
+            return null;
+
+        var sdt = soDienThoai.Trim();
+        // Lấy hồ sơ bệnh nhân mới nhất khớp số điện thoại (Id lớn nhất = gần nhất).
+        return await _db.BenhNhans
+            .AsNoTracking()
+            .Where(b => b.SoDienThoai == sdt)
+            .OrderByDescending(b => b.Id)
+            .Select(b => new BenhNhanInfoDto
+            {
+                MaBenhNhan = b.MaBenhNhan,
+                HoTen = b.HoTen,
+                GioiTinh = b.GioiTinh,
+                NamSinh = b.NamSinh,
+                DiaChi = b.DiaChi,
+                SoDienThoai = b.SoDienThoai
+            })
+            .FirstOrDefaultAsync();
     }
 
     public async Task<List<LichSuKhamDto>> LichSuKhamAsync(string maBenhNhan)

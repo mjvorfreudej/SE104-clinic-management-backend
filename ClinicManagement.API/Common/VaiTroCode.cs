@@ -15,4 +15,6 @@ public static class VaiTroCode
     public const string TiepTan_Admin = TiepTan + "," + Admin;
     public const string BacSi_Admin = BacSi + "," + Admin;
     public const string KeToan_Admin = KeToan + "," + Admin;
+    // YC3 – Tra cứu bệnh nhân: tiếp tân + bác sĩ (+ admin) theo đặc tả.
+    public const string TiepTan_BacSi_Admin = TiepTan + "," + BacSi + "," + Admin;
 }

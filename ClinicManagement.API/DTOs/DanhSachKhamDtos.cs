@@ -21,6 +21,7 @@ public class ChiTietKhamItemDto
     public string GioiTinh { get; set; } = string.Empty;
     public int NamSinh { get; set; }
     public string? DiaChi { get; set; }
+    public string? SoDienThoai { get; set; }
 
     /// <summary>Mã phiếu khám (null nếu bệnh nhân chưa được lập phiếu).</summary>
     public string? MaPhieuKham { get; set; }
@@ -39,6 +40,9 @@ public class DangKyKhamRequest
     public int NamSinh { get; set; }
 
     public string? DiaChi { get; set; }
+
+    /// <summary>Số điện thoại; dùng để nhận diện/tra cứu hồ sơ bệnh nhân cũ.</summary>
+    public string? SoDienThoai { get; set; }
 
     /// <summary>Ngày khám; nếu để trống/MinValue sẽ mặc định là hôm nay.</summary>
     public DateTime NgayKham { get; set; }

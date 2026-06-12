@@ -20,7 +20,7 @@ public class UpdateThamSoRequest
     [Range(1, int.MaxValue, ErrorMessage = "Số bệnh nhân tối đa phải là số dương")]
     public int SoBenhNhanToiDaNgay { get; set; }
 
-    [Range(0, double.MaxValue, ErrorMessage = "Tiền khám phải >= 0")]
+    [Range(1, double.MaxValue, ErrorMessage = "Tiền khám phải là số dương lớn hơn 0")]
     public decimal TienKham { get; set; }
 }
 

@@ -3,6 +3,7 @@ using ClinicManagement.API.Data;
 using ClinicManagement.API.DTOs;
 using ClinicManagement.API.Models;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace ClinicManagement.API.Services;
 
@@ -64,6 +65,7 @@ public class DanhSachKhamService : IDanhSachKhamService
                     GioiTinh = ct.BenhNhan?.GioiTinh ?? string.Empty,
                     NamSinh = ct.BenhNhan?.NamSinh ?? 0,
                     DiaChi = ct.BenhNhan?.DiaChi,
+                    SoDienThoai = ct.BenhNhan?.SoDienThoai,
                     MaPhieuKham = phieuTheoBn.TryGetValue(ct.BenhNhanId, out var ma) ? ma : null
                 });
             }
@@ -86,62 +88,120 @@ public class DanhSachKhamService : IDanhSachKhamService
             ? VietnamTime.Today
             : DateOnly.FromDateTime(request.NgayKham);
 
-        // --- Giới hạn QĐ1 theo quy định HIỆN HÀNH (không dùng giá trị đã đóng băng) ---
-        var thamSo = await _db.ThamSos.FirstOrDefaultAsync();
-        var gioiHanNgay = thamSo?.SoBenhNhanToiDaNgay ?? 40;
+        var sdt = string.IsNullOrWhiteSpace(request.SoDienThoai) ? null : request.SoDienThoai.Trim();
 
-        // --- Lấy hoặc tạo danh sách khám của ngày ---
-        var dsk = await _db.DanhSachKhams.FirstOrDefaultAsync(d => d.NgayKham == ngay);
-        if (dsk is null)
+        // Toàn bộ thao tác tiếp nhận chạy trong 1 transaction để: (1) không tạo bản ghi "nửa vời"
+        // khi lỗi giữa chừng; (2) thu hẹp cửa sổ tranh chấp khi 2 lễ tân tiếp nhận cùng lúc (QĐ1).
+        // DbContext bật EnableRetryOnFailure nên transaction phải đi qua execution strategy.
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            dsk = new DanhSachKham
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try
             {
-                NgayKham = ngay,
-                SoBenhNhanToiDa = gioiHanNgay
-            };
-            _db.DanhSachKhams.Add(dsk);
-            await _db.SaveChangesAsync(); // cần Id của header
+                // --- Giới hạn QĐ1 theo quy định HIỆN HÀNH (không dùng giá trị đã đóng băng) ---
+                var thamSo = await _db.ThamSos.AsNoTracking().FirstOrDefaultAsync();
+                var gioiHanNgay = thamSo?.SoBenhNhanToiDaNgay ?? 40;
+
+                // --- Lấy hoặc tạo danh sách khám của ngày ---
+                var dsk = await _db.DanhSachKhams.FirstOrDefaultAsync(d => d.NgayKham == ngay);
+                if (dsk is null)
+                {
+                    dsk = new DanhSachKham { NgayKham = ngay, SoBenhNhanToiDa = gioiHanNgay };
+                    _db.DanhSachKhams.Add(dsk);
+                    await _db.SaveChangesAsync(); // cần Id của header
+                }
+
+                // --- Kiểm tra QĐ1: giới hạn số bệnh nhân/ngày (re-check trong transaction) ---
+                var soHienTai = await _db.ChiTietDanhSachKhams.CountAsync(c => c.DanhSachKhamId == dsk.Id);
+                if (soHienTai >= gioiHanNgay)
+                    throw new DomainException($"Đã đủ {gioiHanNgay} bệnh nhân trong ngày, không thể tiếp nhận thêm.");
+
+                // --- Dùng lại hồ sơ cũ nếu khớp SĐT, ngược lại tạo mới (Thiết kế xử lý 2.2.1) ---
+                BenhNhan? benhNhan = sdt is null
+                    ? null
+                    : await _db.BenhNhans.OrderByDescending(b => b.Id)
+                        .FirstOrDefaultAsync(b => b.SoDienThoai == sdt);
+
+                if (benhNhan is null)
+                {
+                    var existingCodes = await _db.BenhNhans.Select(b => b.MaBenhNhan).ToListAsync();
+                    benhNhan = new BenhNhan
+                    {
+                        MaBenhNhan = MaGenerator.Next("BN", existingCodes),
+                        HoTen = request.HoTen.Trim(),
+                        GioiTinh = request.GioiTinh.Trim(),
+                        NamSinh = request.NamSinh,
+                        DiaChi = request.DiaChi?.Trim(),
+                        SoDienThoai = sdt
+                    };
+                    _db.BenhNhans.Add(benhNhan);
+                    await _db.SaveChangesAsync();
+                }
+                else
+                {
+                    // Hồ sơ cũ: cập nhật thông tin mới nhất (tên/giới tính/năm sinh/địa chỉ có thể đổi).
+                    benhNhan.HoTen = request.HoTen.Trim();
+                    benhNhan.GioiTinh = request.GioiTinh.Trim();
+                    benhNhan.NamSinh = request.NamSinh;
+                    if (!string.IsNullOrWhiteSpace(request.DiaChi))
+                        benhNhan.DiaChi = request.DiaChi.Trim();
+                }
+
+                // --- Thêm vào danh sách khám (themBenhNhan) với STT tự cấp ---
+                var chiTiet = new ChiTietDanhSachKham
+                {
+                    DanhSachKhamId = dsk.Id,
+                    BenhNhanId = benhNhan.Id,
+                    STT = soHienTai + 1,
+                    TrangThai = "Chờ khám"
+                };
+                _db.ChiTietDanhSachKhams.Add(chiTiet);
+                await _db.SaveChangesAsync();
+
+                await tx.CommitAsync();
+
+                return new ChiTietKhamItemDto
+                {
+                    STT = chiTiet.STT,
+                    TrangThai = chiTiet.TrangThai,
+                    MaBenhNhan = benhNhan.MaBenhNhan,
+                    HoTen = benhNhan.HoTen,
+                    GioiTinh = benhNhan.GioiTinh,
+                    NamSinh = benhNhan.NamSinh,
+                    DiaChi = benhNhan.DiaChi,
+                    SoDienThoai = benhNhan.SoDienThoai,
+                    MaPhieuKham = null
+                };
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                await tx.RollbackAsync();
+                // Trùng (DanhSachKhamId, BenhNhanId) hoặc tranh chấp tạo danh sách cùng lúc.
+                throw new DomainException("Bệnh nhân này đã có trong danh sách khám của ngày. Vui lòng tải lại danh sách.");
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        });
+    }
+
+    public async Task BatDauKhamAsync(string maBenhNhan)
+    {
+        if (string.IsNullOrWhiteSpace(maBenhNhan)) return;
+
+        var ngay = VietnamTime.Today;
+        var chiTiet = await _db.ChiTietDanhSachKhams
+            .FirstOrDefaultAsync(c => c.BenhNhan!.MaBenhNhan == maBenhNhan
+                                      && c.DanhSachKham!.NgayKham == ngay);
+
+        // Chỉ chuyển "Chờ khám" -> "Đang khám"; KHÔNG ghi đè "Đã khám"/"Đã thanh toán".
+        if (chiTiet is not null && chiTiet.TrangThai == "Chờ khám")
+        {
+            chiTiet.TrangThai = "Đang khám";
+            await _db.SaveChangesAsync();
         }
-
-        // --- Kiểm tra QĐ1: giới hạn số bệnh nhân/ngày ---
-        var soHienTai = await _db.ChiTietDanhSachKhams.CountAsync(c => c.DanhSachKhamId == dsk.Id);
-        if (soHienTai >= gioiHanNgay)
-            throw new DomainException($"Đã đủ {gioiHanNgay} bệnh nhân trong ngày, không thể tiếp nhận thêm.");
-
-        // --- Tạo bệnh nhân mới (taoBenhNhan) ---
-        var existingCodes = await _db.BenhNhans.Select(b => b.MaBenhNhan).ToListAsync();
-        var benhNhan = new BenhNhan
-        {
-            MaBenhNhan = MaGenerator.Next("BN", existingCodes),
-            HoTen = request.HoTen.Trim(),
-            GioiTinh = request.GioiTinh.Trim(),
-            NamSinh = request.NamSinh,
-            DiaChi = request.DiaChi?.Trim()
-        };
-        _db.BenhNhans.Add(benhNhan);
-        await _db.SaveChangesAsync();
-
-        // --- Thêm vào danh sách khám (themBenhNhan) với STT tự cấp ---
-        var chiTiet = new ChiTietDanhSachKham
-        {
-            DanhSachKhamId = dsk.Id,
-            BenhNhanId = benhNhan.Id,
-            STT = soHienTai + 1,
-            TrangThai = "Chờ khám"
-        };
-        _db.ChiTietDanhSachKhams.Add(chiTiet);
-        await _db.SaveChangesAsync();
-
-        return new ChiTietKhamItemDto
-        {
-            STT = chiTiet.STT,
-            TrangThai = chiTiet.TrangThai,
-            MaBenhNhan = benhNhan.MaBenhNhan,
-            HoTen = benhNhan.HoTen,
-            GioiTinh = benhNhan.GioiTinh,
-            NamSinh = benhNhan.NamSinh,
-            DiaChi = benhNhan.DiaChi,
-            MaPhieuKham = null
-        };
     }
 }

@@ -43,4 +43,13 @@ public class DanhSachKhamController : ControllerBase
         var result = await _service.TiepNhanAsync(request);
         return Ok(result);
     }
+
+    /// <summary>Đánh dấu bệnh nhân "Đang khám" khi bác sĩ mở phiếu (Bác Sĩ / Admin).</summary>
+    [HttpPost("dangkham/{maBenhNhan}")]
+    [Authorize(Roles = VaiTroCode.BacSi_Admin)]
+    public async Task<IActionResult> BatDauKham(string maBenhNhan)
+    {
+        await _service.BatDauKhamAsync(maBenhNhan);
+        return Ok(new MessageResponse("Đã cập nhật trạng thái Đang khám."));
+    }
 }

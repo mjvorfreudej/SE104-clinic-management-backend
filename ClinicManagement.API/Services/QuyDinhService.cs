@@ -43,8 +43,8 @@ public class QuyDinhService : IQuyDinhService
     {
         if (request.SoBenhNhanToiDaNgay <= 0)
             throw new DomainException("Số bệnh nhân tối đa phải là số dương lớn hơn 0.");
-        if (request.TienKham < 0)
-            throw new DomainException("Tiền khám phải lớn hơn hoặc bằng 0.");
+        if (request.TienKham <= 0)
+            throw new DomainException("Tiền khám phải là số dương lớn hơn 0.");
 
         var ts = await GetOrCreateThamSoAsync();
         ts.SoBenhNhanToiDaNgay = request.SoBenhNhanToiDaNgay;
